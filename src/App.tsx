@@ -437,6 +437,17 @@ function AppContent() {
               </div>
 
               <Card className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-zinc-500">Nome do Aluno</label>
+                  <input 
+                    type="text" 
+                    placeholder="Seu nome completo"
+                    className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    value={profile?.name || ''}
+                    onChange={e => setProfile(prev => ({ ...prev!, name: e.target.value } as UserProfile))}
+                  />
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-zinc-500">Peso (kg)</label>

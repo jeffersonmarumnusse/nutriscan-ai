@@ -14,6 +14,7 @@ export const saveProfile = async (userId: string, profile: any) => {
   // Map camelCase to snake_case
   const profileData = {
     id: userId,
+    name: profile.name,
     weight: profile.weight,
     height: profile.height,
     age: profile.age,

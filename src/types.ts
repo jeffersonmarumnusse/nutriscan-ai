@@ -13,6 +13,7 @@ export enum Goal {
 }
 
 export interface UserProfile {
+  name: string;
   weight: number; // kg
   height: number; // cm
   age: number;
