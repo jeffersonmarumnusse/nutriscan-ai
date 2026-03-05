@@ -308,10 +308,10 @@ function AppContent() {
             <h1 className="text-xl font-bold tracking-tight">NutriScan AI</h1>
           </div>
           <div className="flex items-center gap-3">
-            {profile && (
+            {profile && stats && !isNaN(stats.bmi) && (
               <div className="flex items-center gap-2 text-sm font-medium bg-zinc-100 px-3 py-1.5 rounded-full">
                 <Scale className="w-4 h-4 text-emerald-600" />
-                <span>{stats?.bmi.toFixed(1)} IMC</span>
+                <span>{stats.bmi.toFixed(1)} IMC</span>
               </div>
             )}
           </div>
