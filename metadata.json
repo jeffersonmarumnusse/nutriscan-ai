@@ -1,0 +1,7 @@
+{
+  "name": "NutriScan AI",
+  "description": "Seu assistente nutricional inteligente. Escaneie pratos, calcule seu IMC/TMB e receba sugestões de cardápios personalizados com IA.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
