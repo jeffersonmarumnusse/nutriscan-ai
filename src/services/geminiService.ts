@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { FoodItem, MealPlan, UserProfile } from "../types";
+import { FoodItem, MealPlan, UserProfile, WorkoutInfo } from "../types";
 
 const getApiKey = () => {
   // Try Vite env first (Vercel/Production)
@@ -87,4 +87,87 @@ export const generateMealPlan = async (profile: UserProfile, stats: any): Promis
   });
 
   return response.text || "Não foi possível gerar o cardápio.";
+};
+
+export const getWorkoutInfo = async (workoutName: string, limitations: string = ""): Promise<WorkoutInfo | null> => {
+  if (!apiKey) return null;
+
+  const prompt = `
+    Você é o núcleo de inteligência do app Kross Zone, um sistema de treinamento funcional inspirado no modelo F45.
+    Identifique o treino solicitado: "${workoutName}".
+    
+    Considere estas limitações do aluno: "${limitations}".
+
+    Forneça:
+    1. Resumo motivador em Português do Brasil.
+    2. Foco do treino (Cardio, Força ou Híbrido).
+    3. Estrutura (Estações, Pods, Laps e Tempo).
+    4. Lista de 6 exercícios principais. Para cada um, forneça o nome original e uma substituição (Smart Swap) baseada nas limitações (se houver) ou uma alternativa comum de baixo impacto.
+    5. Um link fictício de vídeo formatado como: https://kross.zone/video/[nome-do-treino]
+
+    Retorne APENAS um objeto JSON com esta estrutura:
+    {
+      "name": "Nome do Treino",
+      "type": "Cardio | Força | Híbrido",
+      "summary": "Texto motivador...",
+      "structure": {
+        "stations": 12,
+        "pods": 1,
+        "laps": 2,
+        "timing": "45s on / 15s off"
+      },
+      "exercises": [
+        { "name": "Nome", "original": "Exercício Original", "swap": "Substituição", "reason": "Por que trocar" }
+      ],
+      "videoUrl": "https://..."
+    }
+  `;
+
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          name: { type: Type.STRING },
+          type: { type: Type.STRING, enum: ["Cardio", "Força", "Híbrido"] },
+          summary: { type: Type.STRING },
+          structure: {
+            type: Type.OBJECT,
+            properties: {
+              stations: { type: Type.NUMBER },
+              pods: { type: Type.NUMBER },
+              laps: { type: Type.NUMBER },
+              timing: { type: Type.STRING }
+            },
+            required: ["stations", "pods", "laps", "timing"]
+          },
+          exercises: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                name: { type: Type.STRING },
+                original: { type: Type.STRING },
+                swap: { type: Type.STRING },
+                reason: { type: Type.STRING }
+              },
+              required: ["name", "original", "swap", "reason"]
+            }
+          },
+          videoUrl: { type: Type.STRING }
+        },
+        required: ["name", "type", "summary", "structure", "exercises", "videoUrl"]
+      }
+    }
+  });
+
+  try {
+    return JSON.parse(response.text || "null");
+  } catch (e) {
+    console.error("Failed to parse workout info", e);
+    return null;
+  }
 };

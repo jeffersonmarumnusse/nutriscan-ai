@@ -57,3 +57,24 @@ export interface MealPlan {
   dinner: string;
   snacks: string;
 }
+
+export interface WorkoutExercise {
+  name: string;
+  original: string;
+  swap: string;
+  reason: string;
+}
+
+export interface WorkoutInfo {
+  name: string;
+  type: 'Cardio' | 'Força' | 'Híbrido';
+  summary: string;
+  structure: {
+    stations: number;
+    pods: number;
+    laps: number;
+    timing: string;
+  };
+  exercises: WorkoutExercise[];
+  videoUrl: string;
+}

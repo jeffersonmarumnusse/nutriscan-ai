@@ -17,7 +17,9 @@ import {
   Loader2,
   X,
   Check,
-  ArrowRight
+  ArrowRight,
+  Dumbbell,
+  Play
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDropzone } from 'react-dropzone';
@@ -33,11 +35,12 @@ import {
   Goal, 
   NutritionStats, 
   ScannedMeal, 
-  FoodItem 
+  FoodItem,
+  WorkoutInfo
 } from './types';
 import { calculateNutrition } from './utils/nutrition';
-import { scanPlate, generateMealPlan } from './services/geminiService';
-import { saveProfile, saveMeal, getMeals, getProfile } from './services/supabaseService';
+import { scanPlate, generateMealPlan, getWorkoutInfo } from './services/geminiService';
+import { saveProfile, saveMeal, getMeals, getProfile, saveWorkout } from './services/supabaseService';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -153,7 +156,7 @@ export default function App() {
 }
 
 function AppContent() {
-  const [activeTab, setActiveTab] = useState<'home' | 'profile' | 'diary' | 'menu'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'profile' | 'diary' | 'menu' | 'workouts'>('home');
   const [userId, setUserId] = useState(() => {
     try {
       const saved = localStorage.getItem('nutriscan_user_id');
@@ -176,14 +179,38 @@ function AppContent() {
   const [dbError, setDbError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Default profile to avoid null issues
+  const defaultProfile: UserProfile = {
+    name: '',
+    weight: 70,
+    height: 170,
+    age: 30,
+    gender: 'male',
+    activityLevel: ActivityLevel.MODERATE,
+    goal: Goal.MAINTAIN,
+    restrictions: ''
+  };
+
   // Initial Load
   useEffect(() => {
     const loadData = async () => {
       setIsLoadingData(true);
       try {
+        // 1. Try Local Storage first for speed
+        const savedProfile = localStorage.getItem('nutriscan_profile');
+        if (savedProfile) {
+          setProfile(JSON.parse(savedProfile));
+        }
+
+        // 2. Try Supabase
         const { data: profileData } = await getProfile(userId);
         if (profileData) {
-          setProfile(profileData as UserProfile);
+          const mergedProfile = { ...defaultProfile, ...profileData };
+          setProfile(mergedProfile as UserProfile);
+          localStorage.setItem('nutriscan_profile', JSON.stringify(mergedProfile));
+        } else if (!savedProfile) {
+          // If nothing anywhere, set default
+          setProfile(defaultProfile);
         }
 
         const { data: mealsData } = await getMeals(userId);
@@ -191,13 +218,24 @@ function AppContent() {
           setMeals(mealsData as ScannedMeal[]);
         }
       } catch (err) {
-        console.error("Error loading data from Supabase", err);
+        console.error("Error loading data", err);
       } finally {
         setIsLoadingData(false);
       }
     };
     loadData();
   }, [userId]);
+
+  // Save to LocalStorage on change
+  useEffect(() => {
+    if (profile) {
+      localStorage.setItem('nutriscan_profile', JSON.stringify(profile));
+    }
+  }, [profile]);
+
+  const [workoutSearch, setWorkoutSearch] = useState('');
+  const [workoutInfo, setWorkoutInfo] = useState<WorkoutInfo | null>(null);
+  const [isSearchingWorkout, setIsSearchingWorkout] = useState(false);
 
   // Update Stats and Sync Profile
   useEffect(() => {
@@ -279,6 +317,24 @@ function AppContent() {
     const plan = await generateMealPlan(profile, stats);
     setMealPlan(plan);
     setIsGeneratingMenu(false);
+  };
+
+  const handleSearchWorkout = async () => {
+    if (!workoutSearch.trim()) return;
+    setIsSearchingWorkout(true);
+    try {
+      const info = await getWorkoutInfo(workoutSearch, profile?.restrictions || "");
+      if (info) {
+        setWorkoutInfo(info);
+        await saveWorkout(userId, info);
+      } else {
+        alert("Não foi possível encontrar informações sobre este treino.");
+      }
+    } catch (err) {
+      console.error("Error searching workout:", err);
+    } finally {
+      setIsSearchingWorkout(false);
+    }
   };
 
   const todayCalories = meals
@@ -444,7 +500,7 @@ function AppContent() {
                     placeholder="Seu nome completo"
                     className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     value={profile?.name || ''}
-                    onChange={e => setProfile(prev => ({ ...prev!, name: e.target.value } as UserProfile))}
+                    onChange={e => setProfile(prev => ({ ...(prev || defaultProfile), name: e.target.value }))}
                   />
                 </div>
 
@@ -455,7 +511,7 @@ function AppContent() {
                       type="number" 
                       className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       value={profile?.weight || ''}
-                      onChange={e => setProfile(prev => ({ ...prev!, weight: Number(e.target.value) } as UserProfile))}
+                      onChange={e => setProfile(prev => ({ ...(prev || defaultProfile), weight: Number(e.target.value) }))}
                     />
                   </div>
                   <div className="space-y-2">
@@ -464,7 +520,7 @@ function AppContent() {
                       type="number" 
                       className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       value={profile?.height || ''}
-                      onChange={e => setProfile(prev => ({ ...prev!, height: Number(e.target.value) } as UserProfile))}
+                      onChange={e => setProfile(prev => ({ ...(prev || defaultProfile), height: Number(e.target.value) }))}
                     />
                   </div>
                 </div>
@@ -476,7 +532,7 @@ function AppContent() {
                       type="number" 
                       className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       value={profile?.age || ''}
-                      onChange={e => setProfile(prev => ({ ...prev!, age: Number(e.target.value) } as UserProfile))}
+                      onChange={e => setProfile(prev => ({ ...(prev || defaultProfile), age: Number(e.target.value) }))}
                     />
                   </div>
                   <div className="space-y-2">
@@ -484,7 +540,7 @@ function AppContent() {
                     <select 
                       className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       value={profile?.gender || 'male'}
-                      onChange={e => setProfile(prev => ({ ...prev!, gender: e.target.value as 'male' | 'female' } as UserProfile))}
+                      onChange={e => setProfile(prev => ({ ...(prev || defaultProfile), gender: e.target.value as 'male' | 'female' }))}
                     >
                       <option value="male">Masculino</option>
                       <option value="female">Feminino</option>
@@ -497,7 +553,7 @@ function AppContent() {
                   <select 
                     className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     value={profile?.activityLevel || ActivityLevel.SEDENTARY}
-                    onChange={e => setProfile(prev => ({ ...prev!, activityLevel: e.target.value as ActivityLevel } as UserProfile))}
+                    onChange={e => setProfile(prev => ({ ...(prev || defaultProfile), activityLevel: e.target.value as ActivityLevel }))}
                   >
                     <option value={ActivityLevel.SEDENTARY}>Sedentário (Pouco ou nenhum exercício)</option>
                     <option value={ActivityLevel.LIGHT}>Leve (1-3 dias/semana)</option>
@@ -517,7 +573,7 @@ function AppContent() {
                     ].map(g => (
                       <button
                         key={g.id}
-                        onClick={() => setProfile(prev => ({ ...prev!, goal: g.id } as UserProfile))}
+                        onClick={() => setProfile(prev => ({ ...(prev || defaultProfile), goal: g.id }))}
                         className={cn(
                           "px-2 py-3 rounded-xl text-xs font-bold transition-all border",
                           profile?.goal === g.id 
@@ -538,7 +594,7 @@ function AppContent() {
                     placeholder="Ex: Lactose, Glúten, Amendoim..."
                     className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     value={profile?.restrictions || ''}
-                    onChange={e => setProfile(prev => ({ ...prev!, restrictions: e.target.value } as UserProfile))}
+                    onChange={e => setProfile(prev => ({ ...(prev || defaultProfile), restrictions: e.target.value }))}
                   />
                 </div>
 
@@ -566,6 +622,127 @@ function AppContent() {
               >
                 Salvar Perfil no Banco de Dados
               </Button>
+            </motion.div>
+          )}
+
+          {activeTab === 'workouts' && (
+            <motion.div
+              key="workouts"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-6"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 bg-black rounded-2xl flex items-center justify-center text-white">
+                  <Dumbbell className="w-7 h-7" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold">Kross Zone</h2>
+                  <p className="text-zinc-500 text-sm">Inteligência de Treino</p>
+                </div>
+              </div>
+
+              <div className="relative">
+                <input 
+                  type="text" 
+                  placeholder="Qual o treino de hoje? (ex: Miami Nights)"
+                  className="w-full bg-white border border-black/10 rounded-2xl px-5 py-4 pr-14 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm font-medium"
+                  value={workoutSearch}
+                  onChange={e => setWorkoutSearch(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSearchWorkout()}
+                />
+                <button 
+                  onClick={handleSearchWorkout}
+                  disabled={isSearchingWorkout}
+                  className="absolute right-2 top-2 bottom-2 w-10 bg-emerald-600 text-white rounded-xl flex items-center justify-center hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                >
+                  {isSearchingWorkout ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-5 h-5" />}
+                </button>
+              </div>
+
+              {workoutInfo && (
+                <div className="space-y-6">
+                  <Card className="bg-zinc-900 text-white border-none overflow-hidden relative">
+                    <div className="absolute top-0 right-0 p-6 opacity-10">
+                      <Dumbbell className="w-24 h-24" />
+                    </div>
+                    <div className="relative z-10">
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className={cn(
+                          "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                          workoutInfo.type === 'Cardio' ? "bg-red-500" : 
+                          workoutInfo.type === 'Força' ? "bg-blue-500" : "bg-purple-500"
+                        )}>
+                          {workoutInfo.type}
+                        </span>
+                        <span className="text-zinc-400 text-xs">• Kross Zone Original</span>
+                      </div>
+                      <h3 className="text-3xl font-bold mb-2">{workoutInfo.name}</h3>
+                      <p className="text-zinc-400 text-sm italic leading-relaxed">"{workoutInfo.summary}"</p>
+                    </div>
+                  </Card>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <Card className="p-4 bg-white">
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase mb-1">Estrutura</p>
+                      <div className="space-y-1">
+                        <p className="text-sm font-bold">{workoutInfo.structure.stations} Estações</p>
+                        <p className="text-sm font-bold">{workoutInfo.structure.pods} Pods • {workoutInfo.structure.laps} Laps</p>
+                      </div>
+                    </Card>
+                    <Card className="p-4 bg-white">
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase mb-1">Timing</p>
+                      <p className="text-lg font-bold text-emerald-600">{workoutInfo.structure.timing}</p>
+                    </Card>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="font-bold text-lg flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-emerald-600" />
+                      Exercícios & Smart Swaps
+                    </h4>
+                    {workoutInfo.exercises.map((ex, idx) => (
+                      <Card key={idx} className="p-4 space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase">Original</p>
+                            <p className="font-bold text-zinc-900">{ex.original}</p>
+                          </div>
+                          <div className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded-lg text-[10px] font-bold">
+                            Estação {idx + 1}
+                          </div>
+                        </div>
+                        <div className="bg-zinc-50 rounded-xl p-3 border border-zinc-100">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Check className="w-3 h-3 text-emerald-600" />
+                            <p className="text-[10px] font-bold text-emerald-600 uppercase">Smart Swap</p>
+                          </div>
+                          <p className="text-sm font-bold text-zinc-800">{ex.swap}</p>
+                          <p className="text-xs text-zinc-500 mt-1">{ex.reason}</p>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+
+                  <a 
+                    href={workoutInfo.videoUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-3 w-full bg-black text-white py-5 rounded-3xl font-bold hover:bg-zinc-800 transition-all"
+                  >
+                    <Play className="w-5 h-5 fill-current" />
+                    Assistir Demonstração do Treino
+                  </a>
+                </div>
+              )}
+
+              {!workoutInfo && !isSearchingWorkout && (
+                <div className="text-center py-12 opacity-30">
+                  <Dumbbell className="w-16 h-16 mx-auto mb-4" />
+                  <p className="font-medium">Digite o nome de um treino para começar</p>
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -703,6 +880,12 @@ function AppContent() {
             onClick={() => setActiveTab('diary')} 
             icon={<History className="w-6 h-6" />} 
             label="Diário" 
+          />
+          <NavButton 
+            active={activeTab === 'workouts'} 
+            onClick={() => setActiveTab('workouts')} 
+            icon={<Dumbbell className="w-6 h-6" />} 
+            label="Treino" 
           />
           <NavButton 
             active={activeTab === 'menu'} 

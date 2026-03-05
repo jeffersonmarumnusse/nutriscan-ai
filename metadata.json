@@ -1,6 +1,6 @@
 {
-  "name": "NutriScan AI",
-  "description": "Seu assistente nutricional inteligente. Escaneie pratos, calcule seu IMC/TMB e receba sugestões de cardápios personalizados com IA.",
+  "name": "NutriScan & Kross Zone AI",
+  "description": "Seu assistente inteligente de nutrição e treino. Escaneie pratos, calcule macros e acesse a inteligência Kross Zone para treinos funcionais com Smart Swaps.",
   "requestFramePermissions": [
     "camera"
   ]

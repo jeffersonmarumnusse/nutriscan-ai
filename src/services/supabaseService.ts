@@ -82,6 +82,7 @@ export const getProfile = async (userId: string) => {
   if (data) {
     // Map snake_case back to camelCase
     const mappedProfile = {
+      name: data.name,
       weight: data.weight,
       height: data.height,
       age: data.age,
@@ -93,5 +94,35 @@ export const getProfile = async (userId: string) => {
     return { data: mappedProfile, error };
   }
   
+  return { data, error };
+};
+
+export const saveWorkout = async (userId: string, workout: any) => {
+  if (!supabase) return { data: null, error: new Error("Supabase not configured") };
+  
+  const workoutData = {
+    user_id: userId,
+    workout_name: workout.name,
+    workout_type: workout.type,
+    summary: workout.summary,
+    structure: workout.structure,
+    exercises: workout.exercises,
+    timestamp: new Date().toISOString()
+  };
+
+  const { data, error } = await supabase
+    .from('workouts')
+    .insert(workoutData)
+    .select();
+  return { data, error };
+};
+
+export const getWorkouts = async (userId: string) => {
+  if (!supabase) return { data: [], error: new Error("Supabase not configured") };
+  const { data, error } = await supabase
+    .from('workouts')
+    .select('*')
+    .eq('user_id', userId)
+    .order('timestamp', { ascending: false });
   return { data, error };
 };
