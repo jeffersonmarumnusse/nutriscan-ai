@@ -22,45 +22,56 @@ export const scanPlate = async (base64Image: string, mimeType: string = "image/j
     console.error("Gemini API Key not configured");
     return [];
   }
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: {
-      parts: [
-        {
-          inlineData: {
-            mimeType: mimeType,
-            data: base64Image,
+  
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-pro-preview",
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              mimeType: mimeType,
+              data: base64Image,
+            },
           },
-        },
-        {
-          text: "Identify the food items in this plate. For each item, estimate the portion size, calories, protein, carbs, and fats. Return the result as a JSON array of objects with keys: name, calories, protein, carbs, fats, portion.",
-        },
-      ],
-    },
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            name: { type: Type.STRING },
-            calories: { type: Type.NUMBER },
-            protein: { type: Type.NUMBER },
-            carbs: { type: Type.NUMBER },
-            fats: { type: Type.NUMBER },
-            portion: { type: Type.STRING },
+          {
+            text: "Identify the food items in this plate. For each item, estimate the portion size (e.g., '100g', '1 unit'), calories, protein (g), carbs (g), and fats (g). Return the result as a JSON array of objects with keys: name, calories, protein, carbs, fats, portion. Be as accurate as possible with the nutritional estimates.",
           },
-          required: ["name", "calories", "protein", "carbs", "fats", "portion"],
+        ],
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              name: { type: Type.STRING },
+              calories: { type: Type.NUMBER },
+              protein: { type: Type.NUMBER },
+              carbs: { type: Type.NUMBER },
+              fats: { type: Type.NUMBER },
+              portion: { type: Type.STRING },
+            },
+            required: ["name", "calories", "protein", "carbs", "fats", "portion"],
+          },
         },
       },
-    },
-  });
+    });
 
-  try {
-    return JSON.parse(response.text || "[]");
-  } catch (e) {
-    console.error("Failed to parse Gemini response", e);
+    const text = response.text;
+    if (!text) {
+      console.warn("Gemini returned empty text");
+      return [];
+    }
+
+    return JSON.parse(text);
+  } catch (e: any) {
+    console.error("Failed to scan plate with Gemini", e);
+    // If it's a safety error or quota error, we should let the user know via console at least
+    if (e.message?.includes("safety")) {
+      console.error("Gemini safety filter blocked the image");
+    }
     return [];
   }
 };
@@ -82,7 +93,7 @@ export const generateMealPlan = async (profile: UserProfile, stats: any): Promis
   `;
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-3.1-pro-preview",
     contents: prompt,
   });
 
@@ -124,7 +135,7 @@ export const getWorkoutInfo = async (workoutName: string, limitations: string = 
   `;
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-3.1-pro-preview",
     contents: prompt,
     config: {
       responseMimeType: "application/json",

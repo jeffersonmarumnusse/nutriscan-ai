@@ -205,14 +205,20 @@ function AppContent() {
         }
 
         // 2. Try Supabase
-        const { data: profileData } = await getProfile(userId);
+        const { data: profileData, error: profileError } = await getProfile(userId);
+        
         if (profileData) {
           const mergedProfile = { ...defaultProfile, ...profileData };
           setProfile(mergedProfile as UserProfile);
           localStorage.setItem('nutriscan_profile', JSON.stringify(mergedProfile));
-        } else if (!savedProfile) {
-          // If nothing anywhere, set default
-          setProfile(defaultProfile);
+        } else {
+          // If Supabase doesn't have it, but we have it locally or want default
+          const profileToSave = savedProfile ? JSON.parse(savedProfile) : defaultProfile;
+          setProfile(profileToSave);
+          
+          // Force save to Supabase to prevent Foreign Key errors later
+          console.log("Syncing profile to Supabase on startup...");
+          await saveProfile(userId, profileToSave);
         }
 
         const { data: mealsData } = await getMeals(userId);
@@ -275,24 +281,49 @@ function AppContent() {
     reader.onload = async () => {
       try {
         const originalBase64 = reader.result as string;
+        console.log("Image loaded, starting compression...");
         
         // Compress image before sending to Gemini and Supabase
         const compressedBase64WithHeader = await compressImage(originalBase64);
         const compressedBase64 = compressedBase64WithHeader.split(',')[1];
         
+        console.log("Image compressed, calling Gemini...");
         const items = await scanPlate(compressedBase64, 'image/jpeg');
+        console.log("Gemini response items:", items);
         
         if (items && items.length > 0) {
+          // Fallback for crypto.randomUUID if not available
+          const generateId = () => {
+            if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+              return crypto.randomUUID();
+            }
+            return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+          };
+
           const newMeal: ScannedMeal = {
-            id: crypto.randomUUID(),
+            id: generateId(),
             timestamp: Date.now(),
             imageUrl: compressedBase64WithHeader,
             items,
             totalCalories: items.reduce((acc, item) => acc + item.calories, 0)
           };
           
+          console.log("Saving meal to Supabase...");
           const { error: saveError } = await saveMeal(userId, newMeal);
-          if (saveError) {
+          
+          // If we get a foreign key error, it means the profile doesn't exist in DB yet.
+          if (saveError && saveError.message.includes('foreign key constraint')) {
+            console.log("Profile not found in DB, saving profile first...");
+            await saveProfile(userId, profile || defaultProfile);
+            const { error: retryError } = await saveMeal(userId, newMeal);
+            if (retryError) {
+              console.error("Error saving meal after profile retry:", retryError);
+              alert("Erro ao salvar no banco: " + retryError.message);
+            } else {
+              setMeals(prev => [newMeal, ...prev]);
+              setActiveTab('diary');
+            }
+          } else if (saveError) {
             console.error("Error saving meal to Supabase:", saveError);
             alert("Refeição analisada, mas não pôde ser salva no banco: " + saveError.message);
           } else {
@@ -300,17 +331,22 @@ function AppContent() {
             setActiveTab('diary');
           }
         } else {
-          alert("Não foi possível identificar os alimentos na imagem. Tente outra foto.");
+          alert("Não foi possível identificar os alimentos na imagem. Tente outra foto ou verifique sua chave de API.");
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error scanning plate:", error);
-        alert("Ocorreu um erro ao analisar a imagem.");
+        alert("Ocorreu um erro ao analisar a imagem: " + (error.message || "Erro desconhecido"));
       } finally {
         setIsScanning(false);
       }
     };
+    reader.onerror = () => {
+      console.error("FileReader error");
+      alert("Erro ao ler o arquivo de imagem.");
+      setIsScanning(false);
+    };
     reader.readAsDataURL(file);
-  }, [userId]);
+  }, [userId, profile, defaultProfile]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
     onDrop, 
