@@ -39,6 +39,7 @@ import {
   WorkoutInfo
 } from './types';
 import { calculateNutrition } from './utils/nutrition';
+import { compressImage } from './utils/image';
 import { scanPlate, generateMealPlan, getWorkoutInfo } from './services/geminiService';
 import { saveProfile, saveMeal, getMeals, getProfile, saveWorkout } from './services/supabaseService';
 
@@ -160,11 +161,12 @@ function AppContent() {
   const [userId, setUserId] = useState(() => {
     try {
       const saved = localStorage.getItem('nutriscan_user_id');
-      if (saved && saved !== 'undefined' && saved !== 'null') return saved;
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (saved && uuidRegex.test(saved)) return saved;
     } catch (e) {
       console.error("Error reading userId from localStorage", e);
     }
-    const newId = Math.random().toString(36).substr(2, 9);
+    const newId = crypto.randomUUID();
     localStorage.setItem('nutriscan_user_id', newId);
     return newId;
   });
@@ -272,14 +274,19 @@ function AppContent() {
     const reader = new FileReader();
     reader.onload = async () => {
       try {
-        const base64 = (reader.result as string).split(',')[1];
-        const items = await scanPlate(base64, file.type);
+        const originalBase64 = reader.result as string;
+        
+        // Compress image before sending to Gemini and Supabase
+        const compressedBase64WithHeader = await compressImage(originalBase64);
+        const compressedBase64 = compressedBase64WithHeader.split(',')[1];
+        
+        const items = await scanPlate(compressedBase64, 'image/jpeg');
         
         if (items && items.length > 0) {
           const newMeal: ScannedMeal = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             timestamp: Date.now(),
-            imageUrl: reader.result as string,
+            imageUrl: compressedBase64WithHeader,
             items,
             totalCalories: items.reduce((acc, item) => acc + item.calories, 0)
           };

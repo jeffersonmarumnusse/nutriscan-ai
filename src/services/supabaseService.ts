@@ -38,7 +38,7 @@ export const saveMeal = async (userId: string, meal: any) => {
   const mealData = {
     id: meal.id,
     user_id: userId,
-    timestamp: meal.timestamp,
+    timestamp: typeof meal.timestamp === 'number' ? new Date(meal.timestamp).toISOString() : meal.timestamp,
     image_url: meal.imageUrl,
     items: meal.items,
     total_calories: meal.totalCalories
