@@ -8,8 +8,9 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
   : null as any;
 
 export const saveProfile = async (userId: string, profile: any) => {
-  if (!supabase) return { data: null, error: new Error("Supabase not configured") };
+  if (!supabase) return { data: null, error: new Error("Supabase not configured. Check environment variables.") };
   
+  console.log("Attempting to save profile for user:", userId);
   // Map camelCase to snake_case
   const profileData = {
     id: userId,

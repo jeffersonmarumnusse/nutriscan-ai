@@ -173,6 +173,8 @@ function AppContent() {
   const [mealPlan, setMealPlan] = useState<string | null>(null);
   const [isGeneratingMenu, setIsGeneratingMenu] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [dbError, setDbError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Initial Load
   useEffect(() => {
@@ -201,11 +203,28 @@ function AppContent() {
   useEffect(() => {
     if (profile) {
       setStats(calculateNutrition(profile));
-      saveProfile(userId, profile).then(({ error }) => {
-        if (error) console.error("Error syncing profile to Supabase:", error);
-      });
     }
-  }, [profile, userId]);
+  }, [profile]);
+
+  const handleSaveProfile = async () => {
+    if (!profile) return;
+    setIsSaving(true);
+    setDbError(null);
+    try {
+      const { error } = await saveProfile(userId, profile);
+      if (error) {
+        setDbError(error.message);
+        console.error("Error syncing profile to Supabase:", error);
+      } else {
+        alert("Perfil salvo com sucesso no banco de dados!");
+        setActiveTab('home');
+      }
+    } catch (err: any) {
+      setDbError(err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -226,12 +245,15 @@ function AppContent() {
             items,
             totalCalories: items.reduce((acc, item) => acc + item.calories, 0)
           };
-          setMeals(prev => [newMeal, ...prev]);
+          
           const { error: saveError } = await saveMeal(userId, newMeal);
           if (saveError) {
             console.error("Error saving meal to Supabase:", saveError);
+            alert("Refeição analisada, mas não pôde ser salva no banco: " + saveError.message);
+          } else {
+            setMeals(prev => [newMeal, ...prev]);
+            setActiveTab('diary');
           }
-          setActiveTab('diary');
         } else {
           alert("Não foi possível identificar os alimentos na imagem. Tente outra foto.");
         }
@@ -396,6 +418,24 @@ function AppContent() {
               className="space-y-6"
             >
               <h2 className="text-2xl font-bold">Seu Perfil</h2>
+              
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg bg-zinc-100 w-fit">
+                  <div className={cn("w-2 h-2 rounded-full", import.meta.env.VITE_SUPABASE_URL ? "bg-emerald-500" : "bg-red-500")} />
+                  <span className="text-zinc-500 uppercase tracking-wider">
+                    Status do Banco: {import.meta.env.VITE_SUPABASE_URL ? "Conectado" : "Desconectado (Verifique a Vercel)"}
+                  </span>
+                </div>
+
+                {dbError && (
+                  <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-sm">
+                    <p className="font-bold mb-1">Erro de Conexão:</p>
+                    <p className="font-mono text-xs">{dbError}</p>
+                    <p className="mt-2 text-xs opacity-80">Dica: Verifique se as tabelas 'profiles' e 'meals' existem no Supabase e se o RLS está liberado.</p>
+                  </div>
+                )}
+              </div>
+
               <Card className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -508,7 +548,13 @@ function AppContent() {
                   </div>
                 )}
               </Card>
-              <Button onClick={() => setActiveTab('home')} className="w-full">Salvar e Continuar</Button>
+              <Button 
+                onClick={handleSaveProfile} 
+                isLoading={isSaving}
+                className="w-full"
+              >
+                Salvar Perfil no Banco de Dados
+              </Button>
             </motion.div>
           )}
 
