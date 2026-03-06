@@ -4,15 +4,15 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Camera, 
-  User, 
-  History, 
-  Utensils, 
-  Plus, 
-  ChevronRight, 
-  Scale, 
-  Activity, 
+import {
+  Camera,
+  User,
+  History,
+  Utensils,
+  Plus,
+  ChevronRight,
+  Scale,
+  Activity,
   Flame,
   Loader2,
   X,
@@ -29,12 +29,12 @@ import { twMerge } from 'tailwind-merge';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
-import { 
-  UserProfile, 
-  ActivityLevel, 
-  Goal, 
-  NutritionStats, 
-  ScannedMeal, 
+import {
+  UserProfile,
+  ActivityLevel,
+  Goal,
+  NutritionStats,
+  ScannedMeal,
   FoodItem,
   WorkoutInfo
 } from './types';
@@ -55,18 +55,18 @@ const Card = ({ children, className, id }: { children: React.ReactNode; classNam
   </div>
 );
 
-const Button = ({ 
-  children, 
-  onClick, 
-  variant = 'primary', 
-  className, 
+const Button = ({
+  children,
+  onClick,
+  variant = 'primary',
+  className,
   disabled,
   isLoading,
   id
-}: { 
-  children: React.ReactNode; 
-  onClick?: () => void; 
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost'; 
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
   className?: string;
   disabled?: boolean;
   isLoading?: boolean;
@@ -80,7 +80,7 @@ const Button = ({
   };
 
   return (
-    <button 
+    <button
       id={id}
       onClick={onClick}
       disabled={disabled || isLoading}
@@ -120,13 +120,13 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
               <Button onClick={() => window.location.reload()} className="w-full">
                 Tentar Novamente
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   localStorage.clear();
                   sessionStorage.clear();
                   window.location.reload();
-                }} 
+                }}
                 className="w-full text-red-600 border-red-100 hover:bg-red-50"
               >
                 Limpar Tudo e Reiniciar
@@ -206,7 +206,7 @@ function AppContent() {
 
         // 2. Try Supabase
         const { data: profileData, error: profileError } = await getProfile(userId);
-        
+
         if (profileData) {
           const mergedProfile = { ...defaultProfile, ...profileData };
           setProfile(mergedProfile as UserProfile);
@@ -215,7 +215,7 @@ function AppContent() {
           // If Supabase doesn't have it, but we have it locally or want default
           const profileToSave = savedProfile ? JSON.parse(savedProfile) : defaultProfile;
           setProfile(profileToSave);
-          
+
           // Force save to Supabase to prevent Foreign Key errors later
           console.log("Syncing profile to Supabase on startup...");
           await saveProfile(userId, profileToSave);
@@ -282,15 +282,15 @@ function AppContent() {
       try {
         const originalBase64 = reader.result as string;
         console.log("Image loaded, starting compression...");
-        
+
         // Compress image before sending to Gemini and Supabase
         const compressedBase64WithHeader = await compressImage(originalBase64);
         const compressedBase64 = compressedBase64WithHeader.split(',')[1];
-        
+
         console.log("Image compressed, calling Gemini...");
         const items = await scanPlate(compressedBase64, 'image/jpeg');
         console.log("Gemini response items:", items);
-        
+
         if (items && items.length > 0) {
           // Fallback for crypto.randomUUID if not available
           const generateId = () => {
@@ -307,10 +307,10 @@ function AppContent() {
             items,
             totalCalories: items.reduce((acc, item) => acc + item.calories, 0)
           };
-          
+
           console.log("Saving meal to Supabase...");
           const { error: saveError } = await saveMeal(userId, newMeal);
-          
+
           // If we get a foreign key error, it means the profile doesn't exist in DB yet.
           if (saveError && saveError.message.includes('foreign key constraint')) {
             console.log("Profile not found in DB, saving profile first...");
@@ -335,7 +335,8 @@ function AppContent() {
         }
       } catch (error: any) {
         console.error("Error scanning plate:", error);
-        alert("Ocorreu um erro ao analisar a imagem: " + (error.message || "Erro desconhecido"));
+        // Look for detailed error in session storage or logs if needed
+        alert("Erro na análise: " + (error.message || "Erro desconhecido") + ". Verifique o Console (F12) para detalhes técnicos.");
       } finally {
         setIsScanning(false);
       }
@@ -348,10 +349,10 @@ function AppContent() {
     reader.readAsDataURL(file);
   }, [userId, profile, defaultProfile]);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
-    onDrop, 
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
     accept: { 'image/*': [] },
-    multiple: false 
+    multiple: false
   });
 
   const handleGenerateMenu = async () => {
@@ -419,7 +420,7 @@ function AppContent() {
 
       <main className="max-w-xl mx-auto px-6 pt-8">
         <AnimatePresence mode="wait">
-          {activeTab === 'home' && (
+          {activeTab === 'home' ? (
             <motion.div
               key="home"
               initial={{ opacity: 0, y: 20 }}
@@ -506,9 +507,7 @@ function AppContent() {
                 </>
               )}
             </motion.div>
-          )}
-
-          {activeTab === 'profile' && (
+          ) : activeTab === 'profile' ? (
             <motion.div
               key="profile"
               initial={{ opacity: 0, x: 20 }}
@@ -517,7 +516,7 @@ function AppContent() {
               className="space-y-6"
             >
               <h2 className="text-2xl font-bold">Seu Perfil</h2>
-              
+
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg bg-zinc-100 w-fit">
                   <div className={cn("w-2 h-2 rounded-full", import.meta.env.VITE_SUPABASE_URL ? "bg-emerald-500" : "bg-red-500")} />
@@ -538,8 +537,8 @@ function AppContent() {
               <Card className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-zinc-500">Nome do Aluno</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder="Seu nome completo"
                     className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     value={profile?.name || ''}
@@ -550,8 +549,8 @@ function AppContent() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-zinc-500">Peso (kg)</label>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       value={profile?.weight || ''}
                       onChange={e => setProfile(prev => ({ ...(prev || defaultProfile), weight: Number(e.target.value) }))}
@@ -559,8 +558,8 @@ function AppContent() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-zinc-500">Altura (cm)</label>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       value={profile?.height || ''}
                       onChange={e => setProfile(prev => ({ ...(prev || defaultProfile), height: Number(e.target.value) }))}
@@ -571,8 +570,8 @@ function AppContent() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-zinc-500">Idade</label>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       value={profile?.age || ''}
                       onChange={e => setProfile(prev => ({ ...(prev || defaultProfile), age: Number(e.target.value) }))}
@@ -580,7 +579,7 @@ function AppContent() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-zinc-500">Gênero</label>
-                    <select 
+                    <select
                       className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       value={profile?.gender || 'male'}
                       onChange={e => setProfile(prev => ({ ...(prev || defaultProfile), gender: e.target.value as 'male' | 'female' }))}
@@ -593,7 +592,7 @@ function AppContent() {
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-zinc-500">Nível de Atividade</label>
-                  <select 
+                  <select
                     className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     value={profile?.activityLevel || ActivityLevel.SEDENTARY}
                     onChange={e => setProfile(prev => ({ ...(prev || defaultProfile), activityLevel: e.target.value as ActivityLevel }))}
@@ -619,8 +618,8 @@ function AppContent() {
                         onClick={() => setProfile(prev => ({ ...(prev || defaultProfile), goal: g.id }))}
                         className={cn(
                           "px-2 py-3 rounded-xl text-xs font-bold transition-all border",
-                          profile?.goal === g.id 
-                            ? "bg-emerald-600 text-white border-emerald-600" 
+                          profile?.goal === g.id
+                            ? "bg-emerald-600 text-white border-emerald-600"
                             : "bg-white text-zinc-500 border-zinc-200 hover:border-emerald-300"
                         )}
                       >
@@ -632,8 +631,8 @@ function AppContent() {
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-zinc-500">Restrições ou Alergias</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder="Ex: Lactose, Glúten, Amendoim..."
                     className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     value={profile?.restrictions || ''}
@@ -658,17 +657,15 @@ function AppContent() {
                   </div>
                 )}
               </Card>
-              <Button 
-                onClick={handleSaveProfile} 
+              <Button
+                onClick={handleSaveProfile}
                 isLoading={isSaving}
                 className="w-full"
               >
                 Salvar Perfil no Banco de Dados
               </Button>
             </motion.div>
-          )}
-
-          {activeTab === 'workouts' && (
+          ) : activeTab === 'workouts' ? (
             <motion.div
               key="workouts"
               initial={{ opacity: 0, x: 20 }}
@@ -687,15 +684,15 @@ function AppContent() {
               </div>
 
               <div className="relative">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder="Qual o treino de hoje? (ex: Miami Nights)"
                   className="w-full bg-white border border-black/10 rounded-2xl px-5 py-4 pr-14 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm font-medium"
                   value={workoutSearch}
                   onChange={e => setWorkoutSearch(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSearchWorkout()}
                 />
-                <button 
+                <button
                   onClick={handleSearchWorkout}
                   disabled={isSearchingWorkout}
                   className="absolute right-2 top-2 bottom-2 w-10 bg-emerald-600 text-white rounded-xl flex items-center justify-center hover:bg-emerald-700 transition-colors disabled:opacity-50"
@@ -714,8 +711,8 @@ function AppContent() {
                       <div className="flex items-center gap-2 mb-4">
                         <span className={cn(
                           "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                          workoutInfo.type === 'Cardio' ? "bg-red-500" : 
-                          workoutInfo.type === 'Força' ? "bg-blue-500" : "bg-purple-500"
+                          workoutInfo.type === 'Cardio' ? "bg-red-500" :
+                            workoutInfo.type === 'Força' ? "bg-blue-500" : "bg-purple-500"
                         )}>
                           {workoutInfo.type}
                         </span>
@@ -768,9 +765,9 @@ function AppContent() {
                     ))}
                   </div>
 
-                  <a 
-                    href={workoutInfo.videoUrl} 
-                    target="_blank" 
+                  <a
+                    href={workoutInfo.videoUrl}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-3 w-full bg-black text-white py-5 rounded-3xl font-bold hover:bg-zinc-800 transition-all"
                   >
@@ -787,9 +784,7 @@ function AppContent() {
                 </div>
               )}
             </motion.div>
-          )}
-
-          {activeTab === 'diary' && (
+          ) : activeTab === 'diary' ? (
             <motion.div
               key="diary"
               initial={{ opacity: 0, x: 20 }}
@@ -799,14 +794,14 @@ function AppContent() {
             >
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold">Histórico</h2>
-                <button 
-                  onClick={() => { if(confirm('Limpar histórico?')) setMeals([]) }}
+                <button
+                  onClick={() => { if (confirm('Limpar histórico?')) setMeals([]) }}
                   className="text-red-500 text-sm font-medium"
                 >
                   Limpar
                 </button>
               </div>
-              
+
               <div className="space-y-4">
                 {meals.map(meal => (
                   <Card key={meal.id} className="overflow-hidden p-0">
@@ -845,9 +840,7 @@ function AppContent() {
                 )}
               </div>
             </motion.div>
-          )}
-
-          {activeTab === 'menu' && (
+          ) : activeTab === 'menu' ? (
             <motion.div
               key="menu"
               initial={{ opacity: 0, x: 20 }}
@@ -856,13 +849,13 @@ function AppContent() {
               className="space-y-6"
             >
               <h2 className="text-2xl font-bold">Sugestão de Cardápio</h2>
-              
+
               {!mealPlan ? (
                 <Card className="text-center py-12">
                   <Utensils className="w-12 h-12 text-emerald-100 mx-auto mb-4" />
                   <p className="text-zinc-600 mb-6">Gere um cardápio personalizado baseado nos seus objetivos e necessidades calóricas.</p>
-                  <Button 
-                    onClick={handleGenerateMenu} 
+                  <Button
+                    onClick={handleGenerateMenu}
                     isLoading={isGeneratingMenu}
                     className="w-full"
                   >
@@ -905,42 +898,42 @@ function AppContent() {
                 </Card>
               )}
             </motion.div>
-          )}
+          ) : null}
         </AnimatePresence>
       </main>
 
       {/* Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-black/5 px-6 py-3 z-30">
         <div className="max-w-xl mx-auto flex items-center justify-between">
-          <NavButton 
-            active={activeTab === 'home'} 
-            onClick={() => setActiveTab('home')} 
-            icon={<Utensils className="w-6 h-6" />} 
-            label="Início" 
+          <NavButton
+            active={activeTab === 'home'}
+            onClick={() => setActiveTab('home')}
+            icon={<Utensils className="w-6 h-6" />}
+            label="Início"
           />
-          <NavButton 
-            active={activeTab === 'diary'} 
-            onClick={() => setActiveTab('diary')} 
-            icon={<History className="w-6 h-6" />} 
-            label="Diário" 
+          <NavButton
+            active={activeTab === 'diary'}
+            onClick={() => setActiveTab('diary')}
+            icon={<History className="w-6 h-6" />}
+            label="Diário"
           />
-          <NavButton 
-            active={activeTab === 'workouts'} 
-            onClick={() => setActiveTab('workouts')} 
-            icon={<Dumbbell className="w-6 h-6" />} 
-            label="Treino" 
+          <NavButton
+            active={activeTab === 'workouts'}
+            onClick={() => setActiveTab('workouts')}
+            icon={<Dumbbell className="w-6 h-6" />}
+            label="Treino"
           />
-          <NavButton 
-            active={activeTab === 'menu'} 
-            onClick={() => setActiveTab('menu')} 
-            icon={<Plus className="w-6 h-6" />} 
-            label="Cardápio" 
+          <NavButton
+            active={activeTab === 'menu'}
+            onClick={() => setActiveTab('menu')}
+            icon={<Plus className="w-6 h-6" />}
+            label="Cardápio"
           />
-          <NavButton 
-            active={activeTab === 'profile'} 
-            onClick={() => setActiveTab('profile')} 
-            icon={<User className="w-6 h-6" />} 
-            label="Perfil" 
+          <NavButton
+            active={activeTab === 'profile'}
+            onClick={() => setActiveTab('profile')}
+            icon={<User className="w-6 h-6" />}
+            label="Perfil"
           />
         </div>
       </nav>
@@ -956,7 +949,7 @@ function AppContent() {
 
 function NavButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
   return (
-    <button 
+    <button
       onClick={onClick}
       title=""
       className={cn(
