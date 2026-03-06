@@ -1,0 +1,7 @@
+{
+  "name": "NutriScan & Kross Zone AI",
+  "description": "Seu assistente inteligente de nutrição e treino. Escaneie pratos, calcule macros e acesse a inteligência Kross Zone para treinos funcionais com Smart Swaps.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
